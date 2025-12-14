@@ -3,7 +3,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
-local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -27,233 +27,53 @@ ScreenGui.Name = "TarnakGui"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
-local LoadingFrame = Instance.new("Frame")
-LoadingFrame.Size = UDim2.new(0, 250, 0, 100)
-LoadingFrame.Position = UDim2.new(0.5, -125, 0.5, -50)
-LoadingFrame.BackgroundColor3 = Colors.Section
-LoadingFrame.BorderSizePixel = 0
-LoadingFrame.Parent = ScreenGui
-
-local LoadingLabel = Instance.new("TextLabel")
-LoadingLabel.Size = UDim2.new(1, 0, 1, 0)
-LoadingLabel.BackgroundTransparency = 1
-LoadingLabel.TextColor3 = Colors.Accent
-LoadingLabel.Font = Enum.Font.SourceSansBold
-LoadingLabel.TextSize = 28
-LoadingLabel.Text = "Tarnak Hileleri\nLoading..."
-LoadingLabel.Parent = LoadingFrame
-
-wait(1)
-LoadingFrame:Destroy()
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 320, 0, 480)
-MainFrame.Position = UDim2.new(1, -330, 0.25, 0)
-MainFrame.BackgroundColor3 = Colors.Background
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = ScreenGui
-MainFrame.Active = true
-MainFrame.Draggable = true
-
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 36)
-TitleBar.BackgroundColor3 = Colors.Section
-TitleBar.Parent = MainFrame
-
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Text = "Tarnak Hileleri"
-TitleLabel.Font = Enum.Font.SourceSansBold
-TitleLabel.TextSize = 22
-TitleLabel.TextColor3 = Colors.Accent
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Position = UDim2.new(0, 10, 0, 2)
-TitleLabel.Size = UDim2.new(0, 200, 0, 30)
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.Parent = TitleBar
-
-local CloseButton = Instance.new("TextButton")
-CloseButton.Text = "X"
-CloseButton.Font = Enum.Font.SourceSansBold
-CloseButton.TextSize = 20
-CloseButton.TextColor3 = Colors.Accent
-CloseButton.BackgroundTransparency = 1
-CloseButton.Position = UDim2.new(1, -40, 0, 0)
-CloseButton.Size = UDim2.new(0, 40, 1, 0)
-CloseButton.Parent = TitleBar
-
-local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Text = "─"
-MinimizeButton.Font = Enum.Font.SourceSansBold
-MinimizeButton.TextSize = 20
-MinimizeButton.TextColor3 = Colors.Accent
-MinimizeButton.BackgroundTransparency = 1
-MinimizeButton.Position = UDim2.new(1, -80, 0, 0)
-MinimizeButton.Size = UDim2.new(0, 40, 1, 0)
-MinimizeButton.Parent = TitleBar
-
-local LogoButton = Instance.new("TextButton")
-LogoButton.Text = "T"
-LogoButton.Font = Enum.Font.SourceSansBold
-LogoButton.TextSize = 24
-LogoButton.TextColor3 = Colors.Accent
-LogoButton.BackgroundColor3 = Colors.Section
-LogoButton.Position = UDim2.new(1, -25, 0.15, 0)
-LogoButton.Size = UDim2.new(0, 40, 0, 40)
-LogoButton.AnchorPoint = Vector2.new(0.5,0.5)
-LogoButton.Visible = false
-LogoButton.Parent = ScreenGui
-LogoButton.AutoButtonColor = false
-LogoButton.BorderSizePixel = 0
-LogoButton.Name = "TarnakLogo"
-LogoButton.ZIndex = 10
-LogoButton.TextScaled = true
-LogoButton.TextWrapped = true
-LogoButton.TextYAlignment = Enum.TextYAlignment.Center
-LogoButton.TextXAlignment = Enum.TextXAlignment.Center
-LogoButton.BackgroundTransparency = 0
-LogoButton.Modal = true
-LogoButton.AutoButtonColor = true
-LogoButton.Style = Enum.ButtonStyle.RobloxRoundButton
-
-local function minimize()
-    if not MainFrame.Visible then return end
-    MainFrame.Visible = false
-    LogoButton.Visible = true
+local function createLabel(text,parent,posY)
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1,-20,0,25)
+    label.Position = UDim2.new(0,10,posY,0)
+    label.Font = Enum.Font.SourceSansSemibold
+    label.TextSize = 16
+    label.TextColor3 = Colors.TextPrimary
+    label.Text = text
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = parent
+    return label
 end
 
-local function restore()
-    if MainFrame.Visible then return end
-    MainFrame.Visible = true
-    LogoButton.Visible = false
+local function createTextBox(placeholder,parent,posY)
+    local box = Instance.new("TextBox")
+    box.PlaceholderText = placeholder
+    box.ClearTextOnFocus = false
+    box.Size = UDim2.new(1,-20,0,30)
+    box.Position = UDim2.new(0,10,posY,0)
+    box.BackgroundColor3 = Colors.Section
+    box.TextColor3 = Colors.TextPrimary
+    box.Font = Enum.Font.SourceSansSemibold
+    box.TextSize = 16
+    box.Parent = parent
+    return box
 end
 
-CloseButton.MouseButton1Click:Connect(function()
-    if Flying then
-        Flying = false
-        if FlyConnection then FlyConnection:Disconnect() FlyConnection = nil end
-        if BodyVelocity then BodyVelocity:Destroy() BodyVelocity = nil end
-        Humanoid.PlatformStand = false
-    end
-    ScreenGui:Destroy()
-end)
-
-MinimizeButton.MouseButton1Click:Connect(minimize)
-LogoButton.MouseButton1Click:Connect(restore)
-
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        MainFrame:CaptureFocus()
-        local dragStart = input.Position
-        local frameStart = MainFrame.Position
-
-        local connMove, connEnd
-
-        connMove = UserInputService.InputChanged:Connect(function(moveInput)
-            if moveInput.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = moveInput.Position - dragStart
-                MainFrame.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + delta.X, frameStart.Y.Scale, frameStart.Y.Offset + delta.Y)
-            end
-        end)
-
-        connEnd = UserInputService.InputEnded:Connect(function(endInput)
-            if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
-                connMove:Disconnect()
-                connEnd:Disconnect()
-                MainFrame:ReleaseFocus()
-            end
-        end)
-    end
-end)
-
-local SideMenu = Instance.new("Frame")
-SideMenu.BackgroundColor3 = Colors.Section
-SideMenu.Size = UDim2.new(0, 100, 1, -36)
-SideMenu.Position = UDim2.new(0, 0, 0, 36)
-SideMenu.Parent = MainFrame
-
-local SideLayout = Instance.new("UIListLayout")
-SideLayout.Padding = UDim.new(0, 6)
-SideLayout.FillDirection = Enum.FillDirection.Vertical
-SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
-SideLayout.Parent = SideMenu
-
-local ContentFrame = Instance.new("Frame")
-ContentFrame.BackgroundColor3 = Colors.Background
-ContentFrame.Size = UDim2.new(1, -100, 1, -36)
-ContentFrame.Position = UDim2.new(0, 100, 0, 36)
-ContentFrame.Parent = MainFrame
-ContentFrame.ClipsDescendants = true
-
-local ContentLayout = Instance.new("UIListLayout")
-ContentLayout.Padding = UDim.new(0, 8)
-ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ContentLayout.Parent = ContentFrame
-
-local Pages = {}
-local CurrentPage
-
-local function createPage(name)
-    local page = Instance.new("ScrollingFrame")
-    page.Size = UDim2.new(1, 0, 1, 0)
-    page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    page.ScrollBarThickness = 6
-    page.BackgroundTransparency = 1
-    page.Visible = false
-    page.Parent = ContentFrame
-
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 6)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = page
-
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
-    end)
-
-    Pages[name] = page
-    return page
-end
-
-local function switchPage(name)
-    if CurrentPage then CurrentPage.Visible = false end
-    local page = Pages[name]
-    if page then
-        page.Visible = true
-        CurrentPage = page
-    end
-end
-
-local function createSideButton(name)
+local function createButton(text,parent,posY,width)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 38)
-    btn.BackgroundColor3 = Colors.Background
-    btn.BorderSizePixel = 0
-    btn.Text = name
+    btn.Size = UDim2.new(0,width or 150,0,30)
+    btn.Position = UDim2.new(0,10,posY,0)
+    btn.BackgroundColor3 = Colors.Section
+    btn.TextColor3 = Colors.TextPrimary
     btn.Font = Enum.Font.SourceSansSemibold
     btn.TextSize = 18
-    btn.TextColor3 = Colors.TextPrimary
-    btn.Parent = SideMenu
-
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Section}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Background}):Play()
-    end)
-
-    btn.MouseButton1Click:Connect(function()
-        switchPage(name)
-    end)
-
+    btn.Text = text
+    btn.Parent = parent
     return btn
 end
 
-local function createToggle(labelText, parent, default, callback)
+local function createToggle(labelText, parent, default, posY, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 38)
     frame.BackgroundColor3 = Colors.Section
     frame.BorderSizePixel = 0
+    frame.Position = UDim2.new(0, 0, posY, 0)
     frame.Parent = parent
 
     local label = Instance.new("TextLabel")
@@ -290,11 +110,12 @@ local function createToggle(labelText, parent, default, callback)
     return frame, function() return toggled end
 end
 
-local function createSlider(labelText, min, max, default, parent, callback)
+local function createSlider(labelText, min, max, default, parent, posY, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 48)
     frame.BackgroundColor3 = Colors.Section
     frame.BorderSizePixel = 0
+    frame.Position = UDim2.new(0, 0, posY, 0)
     frame.Parent = parent
 
     local label = Instance.new("TextLabel")
@@ -344,16 +165,133 @@ local function createSlider(labelText, min, max, default, parent, callback)
     return frame
 end
 
-local function createButton(text, parent, callback)
+-- Ana GUI
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 380, 0, 550)
+MainFrame.Position = UDim2.new(0.5, -190, 0.3, 0)
+MainFrame.BackgroundColor3 = Colors.Background
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundColor3 = Colors.Section
+TitleBar.Parent = MainFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Text = "Tarnak Gelişmiş Hileler"
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.TextSize = 22
+TitleLabel.TextColor3 = Colors.Accent
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 10, 0, 5)
+TitleLabel.Size = UDim2.new(0.7, 0, 0, 30)
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Text = "X"
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.TextSize = 24
+CloseButton.TextColor3 = Colors.Accent
+CloseButton.BackgroundTransparency = 1
+CloseButton.Position = UDim2.new(0.9, 0, 0, 0)
+CloseButton.Size = UDim2.new(0, 40, 1, 0)
+CloseButton.Parent = TitleBar
+
+CloseButton.MouseButton1Click:Connect(function()
+    -- Normalleşme fonksiyonu
+    stopFly()
+    stopSpectator()
+    toggleAnimations(false)
+    toggleBug(false)
+    toggleXRay(false)
+    ScreenGui:Destroy()
+end)
+
+local SideMenu = Instance.new("Frame")
+SideMenu.BackgroundColor3 = Colors.Section
+SideMenu.Size = UDim2.new(0, 120, 1, -40)
+SideMenu.Position = UDim2.new(0, 0, 0, 40)
+SideMenu.Parent = MainFrame
+
+local SideLayout = Instance.new("UIListLayout")
+SideLayout.Padding = UDim.new(0, 8)
+SideLayout.FillDirection = Enum.FillDirection.Vertical
+SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SideLayout.Parent = SideMenu
+
+local ContentFrame = Instance.new("Frame")
+ContentFrame.BackgroundColor3 = Colors.Background
+ContentFrame.Size = UDim2.new(1, -120, 1, -40)
+ContentFrame.Position = UDim2.new(0, 120, 0, 40)
+ContentFrame.Parent = MainFrame
+ContentFrame.ClipsDescendants = true
+
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.Padding = UDim.new(0, 10)
+ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ContentLayout.Parent = ContentFrame
+
+local Pages = {}
+local CurrentPage
+
+local function createPage(name)
+    local page = Instance.new("ScrollingFrame")
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    page.ScrollBarThickness = 6
+    page.BackgroundTransparency = 1
+    page.Visible = false
+    page.Parent = ContentFrame
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 8)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = page
+
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+    end)
+
+    Pages[name] = page
+    return page
+end
+
+local function switchPage(name)
+    if CurrentPage then CurrentPage.Visible = false end
+    local page = Pages[name]
+    if page then
+        page.Visible = true
+        CurrentPage = page
+    end
+end
+
+local function createSideButton(name)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.BackgroundColor3 = Colors.Section
-    btn.TextColor3 = Colors.TextPrimary
+    btn.Size = UDim2.new(1, -20, 0, 40)
+    btn.BackgroundColor3 = Colors.Background
+    btn.BorderSizePixel = 0
+    btn.Text = name
     btn.Font = Enum.Font.SourceSansSemibold
-    btn.TextSize = 18
-    btn.Text = text
-    btn.Parent = parent
-    btn.MouseButton1Click:Connect(callback)
+    btn.TextSize = 20
+    btn.TextColor3 = Colors.TextPrimary
+    btn.Parent = SideMenu
+
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Section}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Colors.Background}):Play()
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        switchPage(name)
+    end)
+
     return btn
 end
 
@@ -373,10 +311,17 @@ for _, name in ipairs(pageNames) do
     createSideButton(name)
     createPage(name)
 end
-
 switchPage("Uçma & İzleyici")
 
+-- Uçma & İzleyici Modu
+
 local flyPage = Pages["Uçma & İzleyici"]
+
+local ctrl = {f = 0, b = 0, l = 0, r = 0}
+local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+local maxspeed = 50
+local speedv = 0
+
 local Flying = false
 local FlySpeed = 80
 local BodyVelocity
@@ -392,6 +337,8 @@ UserInputService.InputEnded:Connect(function(input, gp)
     if Keys[input.KeyCode.Name] ~= nil then Keys[input.KeyCode.Name] = false end
 end)
 
+local verticalMoveDir = 0
+
 local function updateFlyVelocity()
     if not Flying or not BodyVelocity then return end
     local cam = workspace.CurrentCamera
@@ -400,55 +347,66 @@ local function updateFlyVelocity()
     if Keys.S then moveVec = moveVec - cam.CFrame.LookVector end
     if Keys.A then moveVec = moveVec - cam.CFrame.RightVector end
     if Keys.D then moveVec = moveVec + cam.CFrame.RightVector end
-    if Keys.Space then moveVec = moveVec + Vector3.new(0,1,0) end
-    if Keys.LeftShift then moveVec = moveVec - Vector3.new(0,1,0) end
+    if Keys.Space then verticalMoveDir = 1 end
+    if Keys.LeftShift then verticalMoveDir = -1 end
+    if not (Keys.Space or Keys.LeftShift) then verticalMoveDir = 0 end
 
-    if moveVec.Magnitude > 0 then
-        BodyVelocity.Velocity = moveVec.Unit * FlySpeed
+    if moveVec.Magnitude > 0 or verticalMoveDir ~= 0 then
+        BodyVelocity.Velocity = moveVec.Unit * FlySpeed + Vector3.new(0, verticalMoveDir * math.max(5, FlySpeed / 2), 0)
     else
         BodyVelocity.Velocity = Vector3.new(0,0,0)
     end
 end
 
-local flyToggle, flyGet = createToggle("Uçmayı Aç/Kapa", flyPage, false, function(state)
+local function startFly()
+    if Flying then return end
+    Flying = true
+    BodyVelocity = Instance.new("BodyVelocity")
+    BodyVelocity.MaxForce = Vector3.new(1e5,1e5,1e5)
+    BodyVelocity.Parent = RootPart
+    BodyVelocity.Velocity = Vector3.new(0,0,0)
+    Humanoid.PlatformStand = true
+    FlyConnection = RunService.Heartbeat:Connect(updateFlyVelocity)
+end
+
+local function stopFly()
+    if not Flying then return end
+    Flying = false
+    if FlyConnection then FlyConnection:Disconnect() FlyConnection = nil end
+    if BodyVelocity then BodyVelocity:Destroy() BodyVelocity = nil end
+    Humanoid.PlatformStand = false
+end
+
+local flyToggle, flyGet = createToggle("Uçmayı Aç/Kapa", flyPage, false, 0, function(state)
     if state then
-        if not Flying then
-            Flying = true
-            BodyVelocity = Instance.new("BodyVelocity")
-            BodyVelocity.MaxForce = Vector3.new(1e5,1e5,1e5)
-            BodyVelocity.Parent = RootPart
-            BodyVelocity.Velocity = Vector3.new(0,0,0)
-            Humanoid.PlatformStand = true
-            FlyConnection = RunService.Heartbeat:Connect(updateFlyVelocity)
-        end
+        startFly()
     else
-        if Flying then
-            Flying = false
-            if FlyConnection then FlyConnection:Disconnect() FlyConnection = nil end
-            if BodyVelocity then BodyVelocity:Destroy() BodyVelocity = nil end
-            Humanoid.PlatformStand = false
-        end
+        stopFly()
     end
 end)
 
-local flySpeedSlider = createSlider("Uçma Hızı", 10, 500, FlySpeed, flyPage, function(value)
+local flySpeedSlider = createSlider("Uçma Hızı", 10, 500, FlySpeed, flyPage, 0.1, function(value)
     FlySpeed = value
 end)
 
+-- İzleyici modu uçuşun içinde çarpışma kapatma ve hız ayarı
 local SpectatorOn = false
-local SpectatorSpeed = 100
-local spectatorToggle, spectatorGet = createToggle("İzleyici Modu (Uçma + İçinden Geçme)", flyPage, false, function(state)
+local SpectatorSpeed = 120
+
+local spectatorToggle, spectatorGet = createToggle("İzleyici Modu (Uçma + İçinden Geçme)", flyPage, false, 0.25, function(state)
     SpectatorOn = state
     if SpectatorOn then
-        if not Flying then
+        if not flyGet() then
             flyToggle(true)
         end
+        -- Çarpışmayı kapat
         for _, part in pairs(Workspace:GetDescendants()) do
             if part:IsA("BasePart") and part ~= RootPart then
                 part.CanCollide = false
             end
         end
     else
+        -- Çarpışmayı aç
         for _, part in pairs(Workspace:GetDescendants()) do
             if part:IsA("BasePart") and part ~= RootPart then
                 part.CanCollide = true
@@ -457,17 +415,10 @@ local spectatorToggle, spectatorGet = createToggle("İzleyici Modu (Uçma + İç
     end
 end)
 
-local spectatorSpeedLabel = Instance.new("TextLabel")
-spectatorSpeedLabel.Size = UDim2.new(1, -20, 0, 20)
-spectatorSpeedLabel.BackgroundTransparency = 1
-spectatorSpeedLabel.TextColor3 = Colors.TextPrimary
-spectatorSpeedLabel.Font = Enum.Font.SourceSansSemibold
-spectatorSpeedLabel.TextSize = 16
-spectatorSpeedLabel.Text = "İzleyici Hızı: " .. SpectatorSpeed
-spectatorSpeedLabel.Parent = flyPage
-
+local spectatorSpeedLabel = createLabel("İzleyici Hızı: " .. SpectatorSpeed, flyPage, 0.32)
 local spectatorSpeedFrame = Instance.new("Frame")
 spectatorSpeedFrame.Size = UDim2.new(1, -20, 0, 30)
+spectatorSpeedFrame.Position = UDim2.new(0, 10, 0.37, 0)
 spectatorSpeedFrame.BackgroundColor3 = Colors.Section
 spectatorSpeedFrame.Parent = flyPage
 
@@ -529,6 +480,9 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Animasyonlar
+local animPage = Pages["Animasyonlar"]
+local animationsOff = false
 local function stopAllAnimations()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr.Character then
@@ -549,9 +503,7 @@ local function stopAllAnimations()
     end
 end
 
-local animPage = Pages["Animasyonlar"]
-local animationsOff = false
-local animToggle, animGet = createToggle("Animasyonları Kapat (Tüm Karakterler)", animPage, false, function(state)
+local animToggle, animGet = createToggle("Animasyonları Kapat (Tüm Karakterler)", animPage, false, 0, function(state)
     animationsOff = state
     if animationsOff then
         stopAllAnimations()
@@ -564,50 +516,17 @@ Players.PlayerAdded:Connect(function(plr)
     end
 end)
 
+-- Işınlanma
 local tpPage = Pages["Işınlanma"]
 
-local TPInfoLabel = Instance.new("TextLabel")
-TPInfoLabel.Text = "İşaretlenen koordinatlar: X (Zorunlu), Y ve Z (Opsiyonel)"
-TPInfoLabel.Font = Enum.Font.SourceSansSemibold
-TPInfoLabel.TextSize = 14
-TPInfoLabel.TextColor3 = Colors.TextSecondary
-TPInfoLabel.BackgroundTransparency = 1
-TPInfoLabel.Size = UDim2.new(1, -20, 0, 20)
-TPInfoLabel.Position = UDim2.new(0, 10, 0, 10)
-TPInfoLabel.Parent = tpPage
+createLabel("X Koordinatı (zorunlu)", tpPage, 0.05)
+local TPXInput = createTextBox("", tpPage, 0.1)
 
-local TPXInput = Instance.new("TextBox")
-TPXInput.PlaceholderText = "X Koordinatı (zorunlu)"
-TPXInput.Size = UDim2.new(1, -20, 0, 30)
-TPXInput.BackgroundColor3 = Colors.Section
-TPXInput.TextColor3 = Colors.TextPrimary
-TPXInput.Font = Enum.Font.SourceSansSemibold
-TPXInput.TextSize = 16
-TPXInput.ClearTextOnFocus = false
-TPXInput.Parent = tpPage
-TPXInput.Position = UDim2.new(0, 10, 0, 35)
+createLabel("Y Koordinatı (opsiyonel)", tpPage, 0.18)
+local TPYInput = createTextBox("", tpPage, 0.23)
 
-local TPYInput = Instance.new("TextBox")
-TPYInput.PlaceholderText = "Y Koordinatı (opsiyonel)"
-TPYInput.Size = UDim2.new(1, -20, 0, 30)
-TPYInput.BackgroundColor3 = Colors.Section
-TPYInput.TextColor3 = Colors.TextPrimary
-TPYInput.Font = Enum.Font.SourceSansSemibold
-TPYInput.TextSize = 16
-TPYInput.ClearTextOnFocus = false
-TPYInput.Parent = tpPage
-TPYInput.Position = UDim2.new(0, 10, 0, 70)
-
-local TPZInput = Instance.new("TextBox")
-TPZInput.PlaceholderText = "Z Koordinatı (opsiyonel)"
-TPZInput.Size = UDim2.new(1, -20, 0, 30)
-TPZInput.BackgroundColor3 = Colors.Section
-TPZInput.TextColor3 = Colors.TextPrimary
-TPZInput.Font = Enum.Font.SourceSansSemibold
-TPZInput.TextSize = 16
-TPZInput.ClearTextOnFocus = false
-TPZInput.Parent = tpPage
-TPZInput.Position = UDim2.new(0, 10, 0, 105)
+createLabel("Z Koordinatı (opsiyonel)", tpPage, 0.31)
+local TPZInput = createTextBox("", tpPage, 0.36)
 
 local function tpTo(x,y,z)
     if not x then return end
@@ -616,112 +535,88 @@ local function tpTo(x,y,z)
     RootPart.CFrame = CFrame.new(x,y,z)
 end
 
-createButton("Işınlan", tpPage, function()
+local tpButton = createButton("Işınlan", tpPage, 0.43)
+tpButton.MouseButton1Click:Connect(function()
     local x = tonumber(TPXInput.Text)
-    if not x then
-        warn("X koordinatı zorunlu!")
-        return
-    end
+    if not x then warn("X koordinatı zorunlu!") return end
     local y = tonumber(TPYInput.Text)
     local z = tonumber(TPZInput.Text)
     tpTo(x,y,z)
 end)
 
+-- Sinek Modu
 local bugPage = Pages["Sinek Modu"]
-local BugPart
+local BugAccessory -- Kullanıcının takacağı aksesuar
 local BugActive = false
 
-local bugToggle, bugGet = createToggle("Sinek Modu (Kafa Üstü Uçma)", bugPage, false, function(state)
+local bugToggle, bugGet = createToggle("Sinek Modu (Aksesuar Takılınca Aktif)", bugPage, false, 0, function(state)
     BugActive = state
     if BugActive then
-        if not BugPart then
-            BugPart = Instance.new("Part")
-            BugPart.Size = Vector3.new(1,1,1)
-            BugPart.Shape = Enum.PartType.Ball
-            BugPart.Anchored = true
-            BugPart.CanCollide = false
-            BugPart.Material = Enum.Material.Neon
-            BugPart.Color = Color3.fromRGB(255, 255, 0)
-            BugPart.Parent = Workspace
+        -- Aksesuarı tak
+        if not BugAccessory then
+            BugAccessory = Instance.new("Part")
+            BugAccessory.Name = "BugAccessory"
+            BugAccessory.Size = Vector3.new(1,1,1)
+            BugAccessory.Shape = Enum.PartType.Ball
+            BugAccessory.Anchored = false
+            BugAccessory.CanCollide = false
+            BugAccessory.Material = Enum.Material.Neon
+            BugAccessory.Color = Color3.fromRGB(255, 255, 0)
+            BugAccessory.Parent = Character
+            BugAccessory.Transparency = 0.7
+
+            local weld = Instance.new("WeldConstraint")
+            weld.Part0 = Character.Head
+            weld.Part1 = BugAccessory
+            weld.Parent = BugAccessory
+            BugAccessory.CFrame = Character.Head.CFrame * CFrame.new(0,1,0)
         end
-        RunService:BindToRenderStep("BugMove", 301, function()
-            if BugActive and BugPart then
-                local cam = workspace.CurrentCamera
-                BugPart.CFrame = cam.CFrame * CFrame.new(0,0,-5)
-                if Character and Character:FindFirstChild("Head") then
-                    Character.Head.Transparency = 1
-                    for _, part in pairs(Character:GetDescendants()) do
-                        if part:IsA("BasePart") and part ~= RootPart then
-                            part.Transparency = 1
-                        end
-                    end
-                end
-            else
-                RunService:UnbindFromRenderStep("BugMove")
-                if BugPart then
-                    BugPart:Destroy()
-                    BugPart = nil
-                    if Character and Character:FindFirstChild("Head") then
-                        Character.Head.Transparency = 0
-                        for _, part in pairs(Character:GetDescendants()) do
-                            if part:IsA("BasePart") and part ~= RootPart then
-                                part.Transparency = 0
-                            end
-                        end
-                    end
-                end
-            end
-        end)
     else
-        RunService:UnbindFromRenderStep("BugMove")
-        if BugPart then
-            BugPart:Destroy()
-            BugPart = nil
-            if Character and Character:FindFirstChild("Head") then
-                Character.Head.Transparency = 0
-                for _, part in pairs(Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part ~= RootPart then
-                        part.Transparency = 0
-                    end
-                end
-            end
+        -- Aksesuarı çıkar
+        if BugAccessory then
+            BugAccessory:Destroy()
+            BugAccessory = nil
         end
     end
 end)
 
+-- XRay
 local xrayPage = Pages["XRay"]
 local XRayOn = false
 local TransparentParts = {}
 
-local xrayToggle, xrayGet = createToggle("XRay", xrayPage, false, function(state)
+local xrayToggle, xrayGet = createToggle("XRay", xrayPage, false, 0, function(state)
     XRayOn = state
     if XRayOn then
         for _, part in pairs(Workspace:GetDescendants()) do
             if part:IsA("BasePart") and part.Transparency < 1 and part.CanCollide then
                 TransparentParts[part] = {part.Transparency, part.CanCollide}
                 part.Transparency = 0.5
+                part.CanCollide = false
             end
         end
     else
         for part, props in pairs(TransparentParts) do
             if part and part:IsA("BasePart") then
                 part.Transparency = props[1]
+                part.CanCollide = props[2]
             end
         end
         TransparentParts = {}
     end
 end)
 
+-- Aimbot & ESP
 local aimbotPage = Pages["Aimbot & ESP"]
 local AimbotOn = false
 local ESPOn = false
 local AimPartName = "Head"
 
-local aimbotToggle, aimbotGet = createToggle("Aimbot", aimbotPage, false, function(state)
+local aimbotToggle, aimbotGet = createToggle("Aimbot", aimbotPage, false, 0, function(state)
     AimbotOn = state
 end)
 
-local espToggle, espGet = createToggle("ESP", aimbotPage, false, function(state)
+local espToggle, espGet = createToggle("ESP", aimbotPage, false, 0.07, function(state)
     ESPOn = state
 end)
 
@@ -750,9 +645,15 @@ RunService.Heartbeat:Connect(function()
         local target = getClosestTarget()
         if target and target.Parent and target.Parent:FindFirstChild("HumanoidRootPart") then
             local cam = workspace.CurrentCamera
-            cam.CFrame = CFrame.new(cam.CFrame.Position, target.Position)
+            local camPos = cam.CFrame.Position
+            local targetPos = target.Position
+            local direction = (targetPos - camPos).Unit
+            -- Kamera sarsıntısını engellemek için yumuşatılmış dönüş
+            local newCFrame = CFrame.new(camPos, camPos + direction)
+            workspace.CurrentCamera.CFrame = newCFrame
         end
     end
+
     if ESPOn then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
@@ -781,36 +682,28 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Spam & AutoClicker
 local spamPage = Pages["Spam & AutoClicker"]
 
 local SpamKey = Enum.KeyCode.Unknown
 local SpamDelay = 0
+local SpamMsg = "Tarnak Spam Mesaj"
 local SpamActive = false
 
 local AutoClickerKey = Enum.KeyCode.Unknown
 local AutoClickerDelay = 0
 local AutoClickerActive = false
 
-local SpamLabel = Instance.new("TextLabel")
-SpamLabel.Size = UDim2.new(1, -20, 0, 25)
-SpamLabel.BackgroundTransparency = 1
-SpamLabel.TextColor3 = Colors.TextPrimary
-SpamLabel.Font = Enum.Font.SourceSansSemibold
-SpamLabel.TextSize = 16
-SpamLabel.Text = "Spam Mesaj Tuşu: Yok"
-SpamLabel.Parent = spamPage
+local SpamLabel = createLabel("Spam Mesaj Tuşu: Yok", spamPage, 0.05)
+local SpamMsgBox = createTextBox("Spam Mesajı", spamPage, 0.10)
+SpamMsgBox.Text = SpamMsg
 
-local SpamDelayBox = Instance.new("TextBox")
-SpamDelayBox.PlaceholderText = "Spam gecikmesi (saniye) 0 = sürekli"
-SpamDelayBox.Size = UDim2.new(1, -20, 0, 30)
-SpamDelayBox.BackgroundColor3 = Colors.Section
-SpamDelayBox.TextColor3 = Colors.TextPrimary
-SpamDelayBox.Font = Enum.Font.SourceSansSemibold
-SpamDelayBox.TextSize = 16
-SpamDelayBox.ClearTextOnFocus = false
-SpamDelayBox.Parent = spamPage
+local SpamDelayBox = createTextBox("Spam Gecikmesi (saniye, 0= sürekli)", spamPage, 0.17)
+SpamDelayBox.Text = tostring(SpamDelay)
 
-local SpamSetKeyBtn = createButton("Spam Tuşunu Ayarla", spamPage, function()
+local SpamSetKeyBtn = createButton("Spam Tuşunu Ayarla", spamPage, 0.24, 180)
+
+SpamSetKeyBtn.MouseButton1Click:Connect(function()
     SpamLabel.Text = "Bir tuşa basın..."
     local con
     con = UserInputService.InputBegan:Connect(function(input, gp)
@@ -819,6 +712,12 @@ local SpamSetKeyBtn = createButton("Spam Tuşunu Ayarla", spamPage, function()
         SpamLabel.Text = "Spam Mesaj Tuşu: " .. tostring(SpamKey.Name)
         con:Disconnect()
     end)
+end)
+
+SpamMsgBox.FocusLost:Connect(function(enter)
+    if enter then
+        SpamMsg = SpamMsgBox.Text
+    end
 end)
 
 SpamDelayBox.FocusLost:Connect(function(enter)
@@ -832,26 +731,13 @@ SpamDelayBox.FocusLost:Connect(function(enter)
     end
 end)
 
-local AutoClickerLabel = Instance.new("TextLabel")
-AutoClickerLabel.Size = UDim2.new(1, -20, 0, 25)
-AutoClickerLabel.BackgroundTransparency = 1
-AutoClickerLabel.TextColor3 = Colors.TextPrimary
-AutoClickerLabel.Font = Enum.Font.SourceSansSemibold
-AutoClickerLabel.TextSize = 16
-AutoClickerLabel.Text = "Otomatik Tıklama Tuşu: Yok"
-AutoClickerLabel.Parent = spamPage
+local AutoClickerLabel = createLabel("Otomatik Tıklama Tuşu: Yok", spamPage, 0.33)
+local AutoClickerDelayBox = createTextBox("Tıklama Gecikmesi (saniye)", spamPage, 0.38)
+AutoClickerDelayBox.Text = tostring(AutoClickerDelay)
 
-local AutoClickerDelayBox = Instance.new("TextBox")
-AutoClickerDelayBox.PlaceholderText = "Clicker gecikmesi (saniye)"
-AutoClickerDelayBox.Size = UDim2.new(1, -20, 0, 30)
-AutoClickerDelayBox.BackgroundColor3 = Colors.Section
-AutoClickerDelayBox.TextColor3 = Colors.TextPrimary
-AutoClickerDelayBox.Font = Enum.Font.SourceSansSemibold
-AutoClickerDelayBox.TextSize = 16
-AutoClickerDelayBox.ClearTextOnFocus = false
-AutoClickerDelayBox.Parent = spamPage
+local AutoClickerSetKeyBtn = createButton("Otomatik Tıklama Tuşunu Ayarla", spamPage, 0.45, 250)
 
-local AutoClickerSetKeyBtn = createButton("Otomatik Tıklama Tuşunu Ayarla", spamPage, function()
+AutoClickerSetKeyBtn.MouseButton1Click:Connect(function()
     AutoClickerLabel.Text = "Bir tuşa basın..."
     local con
     con = UserInputService.InputBegan:Connect(function(input, gp)
@@ -882,7 +768,7 @@ spawn(function()
                 if chat then
                     local SayMessageRequest = chat:FindFirstChild("SayMessageRequest")
                     if SayMessageRequest then
-                        SayMessageRequest:FireServer("Tarnak Spam Mesaj", "All")
+                        SayMessageRequest:FireServer(SpamMsg, "All")
                     end
                 end
             end
@@ -895,36 +781,80 @@ spawn(function()
     end
 end)
 
+-- Loadstring
 local loadstringPage = Pages["Loadstring"]
 
-createButton("InfiniteYield Aç", loadstringPage, function()
+local loadBtn1 = createButton("InfiniteYield Aç", loadstringPage, 0.05, 220)
+local loadBtn2 = createButton("Dış Script Aç", loadstringPage, 0.12, 220)
+local loadBtn3 = createButton("Cmd Aç", loadstringPage, 0.19, 220)
+
+loadBtn1.MouseButton1Click:Connect(function()
     loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
 end)
-
-createButton("Dış Script Aç", loadstringPage, function()
+loadBtn2.MouseButton1Click:Connect(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/dertonware/scriptasda/refs/heads/main/scriptlua", true))()
 end)
-
-createButton("Cmd Aç", loadstringPage, function()
+loadBtn3.MouseButton1Click:Connect(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/cmd/main/main.lua"))()
 end)
 
+-- Pusula
 local compassPage = Pages["Pusula"]
+local CompassLabel = createLabel("Pozisyon: ", compassPage, 0.05)
+local TPXLabel = createLabel("X Koordinatı (ışınlanma için)", compassPage, 0.12)
+local TPXBox = createTextBox("", compassPage, 0.17)
 
-local CompassLabel = Instance.new("TextLabel")
-CompassLabel.Size = UDim2.new(1, -20, 0, 25)
-CompassLabel.BackgroundTransparency = 1
-CompassLabel.TextColor3 = Colors.TextPrimary
-CompassLabel.Font = Enum.Font.SourceSansSemibold
-CompassLabel.TextSize = 16
-CompassLabel.Text = "X: 0 Y: 0 Z: 0"
-CompassLabel.Parent = compassPage
+local TPYLabel = createLabel("Y Koordinatı (ışınlanma için)", compassPage, 0.25)
+local TPYBox = createTextBox("", compassPage, 0.30)
+
+local TPZLabel = createLabel("Z Koordinatı (ışınlanma için)", compassPage, 0.38)
+local TPZBox = createTextBox("", compassPage, 0.43)
+
+local TPBtn = createButton("Işınlan", compassPage, 0.50)
+TPBtn.MouseButton1Click:Connect(function()
+    local x = tonumber(TPXBox.Text)
+    if not x then warn("X koordinatı zorunlu!") return end
+    local y = tonumber(TPYBox.Text)
+    local z = tonumber(TPZBox.Text)
+    RootPart.CFrame = CFrame.new(x, y or RootPart.Position.Y, z or RootPart.Position.Z)
+end)
 
 RunService.Heartbeat:Connect(function()
     if RootPart and RootPart.Parent then
         local pos = RootPart.Position
-        CompassLabel.Text = string.format("X: %.1f  Y: %.1f  Z: %.1f", pos.X, pos.Y, pos.Z)
+        CompassLabel.Text = string.format("Pozisyon: X: %.1f  Y: %.1f  Z: %.1f", pos.X, pos.Y, pos.Z)
     end
 end)
 
-return ScreenGui
+-- Normalleşme fonksiyonu (tüm modlar kapatılır, özellikler sıfırlanır)
+local function normalizeAll()
+    stopFly()
+    if SpectatorOn then
+        spectatorToggle(false)
+    end
+    if animationsOff then
+        animToggle(false)
+    end
+    if BugActive then
+        bugToggle(false)
+    end
+    if XRayOn then
+        xrayToggle(false)
+    end
+    if AimbotOn then
+        aimbotToggle(false)
+    end
+    if ESPOn then
+        espToggle(false)
+    end
+    SpamKey = Enum.KeyCode.Unknown
+    AutoClickerKey = Enum.KeyCode.Unknown
+end
+
+-- Karakter spawn olunca normalleştir
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = char:WaitForChild("Humanoid")
+    RootPart = char:WaitForChild("HumanoidRootPart")
+    normalizeAll()
+end)
