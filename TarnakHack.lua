@@ -22,13 +22,11 @@ local Colors = {
     SliderFill = Color3.fromRGB(255,100,100),
 }
 
--- Temel GUI ayarları
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TarnakGui"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
--- Loading Frame
 local LoadingFrame = Instance.new("Frame")
 LoadingFrame.Size = UDim2.new(0, 250, 0, 100)
 LoadingFrame.Position = UDim2.new(0.5, -125, 0.5, -50)
@@ -45,11 +43,9 @@ LoadingLabel.TextSize = 28
 LoadingLabel.Text = "Tarnak Hileleri\nLoading..."
 LoadingLabel.Parent = LoadingFrame
 
-wait(1) -- Yükleniyor efekti için
-
+wait(1)
 LoadingFrame:Destroy()
 
--- Ana Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, 480)
 MainFrame.Position = UDim2.new(1, -330, 0.25, 0)
@@ -132,7 +128,6 @@ local function restore()
 end
 
 CloseButton.MouseButton1Click:Connect(function()
-    -- Uçmayı kapat ve temizle
     if Flying then
         Flying = false
         if FlyConnection then FlyConnection:Disconnect() FlyConnection = nil end
@@ -362,7 +357,6 @@ local function createButton(text, parent, callback)
     return btn
 end
 
--- Sayfa isimleri
 local pageNames = {
     "Uçma & İzleyici",
     "Işınlanma",
@@ -382,7 +376,6 @@ end
 
 switchPage("Uçma & İzleyici")
 
--- Uçma & İzleyici Mod Sayfası
 local flyPage = Pages["Uçma & İzleyici"]
 local Flying = false
 local FlySpeed = 80
@@ -442,7 +435,6 @@ local flySpeedSlider = createSlider("Uçma Hızı", 10, 500, FlySpeed, flyPage, 
     FlySpeed = value
 end)
 
--- İzleyici Modu Toggle ve Hız Ayarı
 local SpectatorOn = false
 local SpectatorSpeed = 100
 local spectatorToggle, spectatorGet = createToggle("İzleyici Modu (Uçma + İçinden Geçme)", flyPage, false, function(state)
@@ -451,14 +443,12 @@ local spectatorToggle, spectatorGet = createToggle("İzleyici Modu (Uçma + İç
         if not Flying then
             flyToggle(true)
         end
-        -- İçinden geçme için çarpışmayı kapat
         for _, part in pairs(Workspace:GetDescendants()) do
             if part:IsA("BasePart") and part ~= RootPart then
                 part.CanCollide = false
             end
         end
     else
-        -- Çarpışmayı geri aç
         for _, part in pairs(Workspace:GetDescendants()) do
             if part:IsA("BasePart") and part ~= RootPart then
                 part.CanCollide = true
@@ -521,7 +511,6 @@ plusBtn.MouseButton1Click:Connect(function()
     speedValueLabel.Text = tostring(SpectatorSpeed)
 end)
 
--- İzleyici mod uçuş hızını update et
 RunService.Heartbeat:Connect(function()
     if SpectatorOn and Flying and BodyVelocity then
         local cam = workspace.CurrentCamera
@@ -540,7 +529,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Animasyonları tamamen durdurma fonksiyonu
 local function stopAllAnimations()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr.Character then
@@ -550,7 +538,6 @@ local function stopAllAnimations()
                     anim:Stop()
                 end
             end
-            -- Ayrıca Animator varsa durdur
             for _, animator in pairs(plr.Character:GetDescendants()) do
                 if animator:IsA("Animator") then
                     for _, anim in pairs(animator:GetPlayingAnimationTracks()) do
@@ -577,7 +564,6 @@ Players.PlayerAdded:Connect(function(plr)
     end
 end)
 
--- Işınlanma Sayfası
 local tpPage = Pages["Işınlanma"]
 
 local TPInfoLabel = Instance.new("TextLabel")
@@ -641,7 +627,6 @@ createButton("Işınlan", tpPage, function()
     tpTo(x,y,z)
 end)
 
--- Sinek Modu Sayfası
 local bugPage = Pages["Sinek Modu"]
 local BugPart
 local BugActive = false
@@ -663,7 +648,6 @@ local bugToggle, bugGet = createToggle("Sinek Modu (Kafa Üstü Uçma)", bugPage
             if BugActive and BugPart then
                 local cam = workspace.CurrentCamera
                 BugPart.CFrame = cam.CFrame * CFrame.new(0,0,-5)
-                -- Karakter görünmez
                 if Character and Character:FindFirstChild("Head") then
                     Character.Head.Transparency = 1
                     for _, part in pairs(Character:GetDescendants()) do
@@ -677,7 +661,6 @@ local bugToggle, bugGet = createToggle("Sinek Modu (Kafa Üstü Uçma)", bugPage
                 if BugPart then
                     BugPart:Destroy()
                     BugPart = nil
-                    -- Karakter görünür yap
                     if Character and Character:FindFirstChild("Head") then
                         Character.Head.Transparency = 0
                         for _, part in pairs(Character:GetDescendants()) do
@@ -694,7 +677,6 @@ local bugToggle, bugGet = createToggle("Sinek Modu (Kafa Üstü Uçma)", bugPage
         if BugPart then
             BugPart:Destroy()
             BugPart = nil
-            -- Karakter görünür yap
             if Character and Character:FindFirstChild("Head") then
                 Character.Head.Transparency = 0
                 for _, part in pairs(Character:GetDescendants()) do
@@ -707,7 +689,6 @@ local bugToggle, bugGet = createToggle("Sinek Modu (Kafa Üstü Uçma)", bugPage
     end
 end)
 
--- XRay Sayfası (Sadece şeffaflık, içinden geçme yok)
 local xrayPage = Pages["XRay"]
 local XRayOn = false
 local TransparentParts = {}
@@ -731,7 +712,6 @@ local xrayToggle, xrayGet = createToggle("XRay", xrayPage, false, function(state
     end
 end)
 
--- Aimbot & ESP Sayfası
 local aimbotPage = Pages["Aimbot & ESP"]
 local AimbotOn = false
 local ESPOn = false
@@ -801,7 +781,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Spam & AutoClicker Sayfası
 local spamPage = Pages["Spam & AutoClicker"]
 
 local SpamKey = Enum.KeyCode.Unknown
@@ -853,7 +832,6 @@ SpamDelayBox.FocusLost:Connect(function(enter)
     end
 end)
 
--- AutoClicker Tuş ve Delay
 local AutoClickerLabel = Instance.new("TextLabel")
 AutoClickerLabel.Size = UDim2.new(1, -20, 0, 25)
 AutoClickerLabel.BackgroundTransparency = 1
@@ -895,13 +873,12 @@ AutoClickerDelayBox.FocusLost:Connect(function(enter)
     end
 end)
 
--- Spam ve AutoClicker loop
 spawn(function()
     while true do
         wait(0.1)
         if SpamKey ~= Enum.KeyCode.Unknown and UserInputService:IsKeyDown(SpamKey) then
             if SpamDelay == 0 or (tick() % SpamDelay) < 0.1 then
-                local chat = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+                local chat = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
                 if chat then
                     local SayMessageRequest = chat:FindFirstChild("SayMessageRequest")
                     if SayMessageRequest then
@@ -912,14 +889,12 @@ spawn(function()
         end
         if AutoClickerKey ~= Enum.KeyCode.Unknown and UserInputService:IsKeyDown(AutoClickerKey) then
             if AutoClickerDelay == 0 or (tick() % AutoClickerDelay) < 0.1 then
-                local mouse = LocalPlayer:GetMouse()
-                mouse1click()
+                LocalPlayer:GetMouse().Button1Down:Fire()
             end
         end
     end
 end)
 
--- Loadstring Sayfası
 local loadstringPage = Pages["Loadstring"]
 
 createButton("InfiniteYield Aç", loadstringPage, function()
@@ -934,7 +909,6 @@ createButton("Cmd Aç", loadstringPage, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/cmd/main/main.lua"))()
 end)
 
--- Pusula Sayfası
 local compassPage = Pages["Pusula"]
 
 local CompassLabel = Instance.new("TextLabel")
