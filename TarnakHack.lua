@@ -1,4 +1,4 @@
--- TarnakLua-Roblox - Ultimate Edition V3
+-- TarnakLua-Roblox - Ultimate Edition
 -- Rayfield UI Library
 -- Açma/Kapama: PageDown veya Break tuşu
 
@@ -17,6 +17,7 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 local Debris = game:GetService("Debris")
 local SoundService = game:GetService("SoundService")
+local ContextActionService = game:GetService("ContextActionService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -67,6 +68,7 @@ local noDOFEnabled = false
 local customAmbientEnabled = false
 local rainbowAmbientEnabled = false
 local customTimeEnabled = false
+local dashEnabled = false
 
 local tpwalking = false
 local speeds = 1
@@ -96,6 +98,17 @@ local selectedObject = nil
 local compassGui = nil
 local builderTool = nil
 local currentBuilderMode = "Select"
+local isDragging = false
+local dragStart = nil
+local dragOffset = nil
+
+-- Tool Ayarları
+local swordDamage = 35
+local swordRange = 6
+local gunDamage = 25
+local gunFireRate = 0.15
+local magicDamage = 40
+local magicCooldown = 1
 
 -- ==================== YARDIMCI FONKSİYONLAR ====================
 local function addConnection(conn)
@@ -124,8 +137,6 @@ local function getKeyFromString(text)
         ["END"] = Enum.KeyCode.End, ["PAGEUP"] = Enum.KeyCode.PageUp,
         ["PAGEDOWN"] = Enum.KeyCode.PageDown, ["INSERT"] = Enum.KeyCode.Insert,
         ["DELETE"] = Enum.KeyCode.Delete, ["CAPSLOCK"] = Enum.KeyCode.CapsLock,
-        ["NUMLOCK"] = Enum.KeyCode.NumLock, ["SCROLLLOCK"] = Enum.KeyCode.ScrollLock,
-        ["PAUSE"] = Enum.KeyCode.Pause, ["BREAK"] = Enum.KeyCode.Pause,
         ["F1"] = Enum.KeyCode.F1, ["F2"] = Enum.KeyCode.F2, ["F3"] = Enum.KeyCode.F3,
         ["F4"] = Enum.KeyCode.F4, ["F5"] = Enum.KeyCode.F5, ["F6"] = Enum.KeyCode.F6,
         ["F7"] = Enum.KeyCode.F7, ["F8"] = Enum.KeyCode.F8, ["F9"] = Enum.KeyCode.F9,
@@ -133,12 +144,7 @@ local function getKeyFromString(text)
         ["0"] = Enum.KeyCode.Zero, ["1"] = Enum.KeyCode.One, ["2"] = Enum.KeyCode.Two,
         ["3"] = Enum.KeyCode.Three, ["4"] = Enum.KeyCode.Four, ["5"] = Enum.KeyCode.Five,
         ["6"] = Enum.KeyCode.Six, ["7"] = Enum.KeyCode.Seven, ["8"] = Enum.KeyCode.Eight,
-        ["9"] = Enum.KeyCode.Nine, ["MINUS"] = Enum.KeyCode.Minus, ["EQUALS"] = Enum.KeyCode.Equals,
-        ["LEFTBRACKET"] = Enum.KeyCode.LeftBracket, ["RIGHTBRACKET"] = Enum.KeyCode.RightBracket,
-        ["SEMICOLON"] = Enum.KeyCode.Semicolon, ["QUOTE"] = Enum.KeyCode.Quote,
-        ["BACKQUOTE"] = Enum.KeyCode.BackQuote, ["COMMA"] = Enum.KeyCode.Comma,
-        ["PERIOD"] = Enum.KeyCode.Period, ["SLASH"] = Enum.KeyCode.Slash,
-        ["BACKSLASH"] = Enum.KeyCode.BackSlash,
+        ["9"] = Enum.KeyCode.Nine,
     }
     
     local key = specialKeys[text:upper()]
@@ -182,14 +188,6 @@ local function createCompassGui()
     stroke.Thickness = 2
     stroke.Transparency = 0.3
     stroke.Parent = mainFrame
-    
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 40)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20))
-    })
-    gradient.Rotation = 90
-    gradient.Parent = mainFrame
     
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Size = UDim2.new(1, -45, 0, 24)
@@ -306,12 +304,48 @@ end
 
 createCompassGui()
 
--- ==================== BUILDER TOOL SİSTEMİ ====================
+-- ==================== GELİŞMİŞ BUILDER TOOL - ROBLOX STUDIO TARZI ====================
+local function createStudioHandles(part)
+    if not part or not part:IsA("BasePart") then return end
+    
+    -- Önceki handles'ları temizle
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj.Name:find("StudioHandle") or obj.Name == "BuilderSelection" then
+            obj:Destroy()
+        end
+    end
+    
+    -- Selection Box (Mavi kutu)
+    local selectionBox = Instance.new("SelectionBox")
+    selectionBox.Name = "BuilderSelection"
+    selectionBox.Adornee = part
+    selectionBox.Color3 = Color3.fromRGB(0, 170, 255)
+    selectionBox.LineThickness = 0.03
+    selectionBox.SurfaceColor3 = Color3.fromRGB(0, 100, 200)
+    selectionBox.SurfaceTransparency = 0.9
+    selectionBox.Parent = part
+    
+    -- Move Handles (Oklar)
+    local moveHandles = Instance.new("Handles")
+    moveHandles.Name = "StudioHandle_Move"
+    moveHandles.Adornee = part
+    moveHandles.Color3 = Color3.fromRGB(0, 200, 255)
+    moveHandles.Style = Enum.HandlesStyle.Movement
+    moveHandles.Parent = part
+    
+    moveHandles.MouseDrag:Connect(function(face, distance)
+        local normal = Vector3.FromNormalId(face)
+        part.CFrame = part.CFrame + (normal * distance)
+    end)
+    
+    return selectionBox, moveHandles
+end
+
 local function createBuilderTool()
     if builderTool then builderTool:Destroy() end
     
     builderTool = Instance.new("Tool")
-    builderTool.Name = "🔧 Builder Tool"
+    builderTool.Name = "🔧 Studio Builder"
     builderTool.RequiresHandle = true
     builderTool.CanBeDropped = false
     
@@ -322,15 +356,16 @@ local function createBuilderTool()
     handle.Material = Enum.Material.Neon
     handle.Parent = builderTool
     
-    builderTool.Grip = CFrame.new(0, 0, -0.5) * CFrame.Angles(0, 0, 0)
+    builderTool.Grip = CFrame.new(0, 0, -0.5)
     
+    -- Builder GUI
     local builderGui = Instance.new("ScreenGui")
     builderGui.Name = "BuilderGui"
     builderGui.ResetOnSpawn = false
     
     local mainPanel = Instance.new("Frame")
-    mainPanel.Size = UDim2.new(0, 320, 0, 500)
-    mainPanel.Position = UDim2.new(1, -330, 0.5, -250)
+    mainPanel.Size = UDim2.new(0, 350, 0, 600)
+    mainPanel.Position = UDim2.new(1, -360, 0.5, -300)
     mainPanel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     mainPanel.BackgroundTransparency = 0.05
     mainPanel.BorderSizePixel = 0
@@ -353,8 +388,8 @@ local function createBuilderTool()
     title.BackgroundColor3 = Color3.fromRGB(0, 100, 180)
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
-    title.TextSize = 16
-    title.Text = "🔧 BUILDER TOOL - Studio Mode"
+    title.TextSize = 14
+    title.Text = "🔧 STUDIO BUILDER - Roblox Studio Mode"
     title.Parent = mainPanel
     
     local titleCorner = Instance.new("UICorner")
@@ -373,6 +408,7 @@ local function createBuilderTool()
     selectedLabel.Text = "📦 Seçili: Yok"
     selectedLabel.Parent = mainPanel
     
+    -- Mode butonları
     local modeFrame = Instance.new("Frame")
     modeFrame.Size = UDim2.new(1, -20, 0, 35)
     modeFrame.Position = UDim2.new(0, 10, 0, 75)
@@ -389,12 +425,12 @@ local function createBuilderTool()
     
     for _, mode in ipairs(modes) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 45, 1, 0)
+        btn.Size = UDim2.new(0, 50, 1, 0)
         btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.Font = Enum.Font.GothamBold
         btn.TextSize = 9
-        btn.Text = mode:sub(1, 3)
+        btn.Text = mode:sub(1, 4)
         btn.Parent = modeFrame
         
         local btnCorner = Instance.new("UICorner")
@@ -414,18 +450,20 @@ local function createBuilderTool()
     
     modeButtons[1].BackgroundColor3 = Color3.fromRGB(0, 130, 220)
     
+    -- Scroll Frame
     local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Size = UDim2.new(1, -20, 0, 370)
+    scrollFrame.Size = UDim2.new(1, -20, 0, 470)
     scrollFrame.Position = UDim2.new(0, 10, 0, 120)
     scrollFrame.BackgroundTransparency = 1
     scrollFrame.ScrollBarThickness = 6
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 700)
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1200)
     scrollFrame.Parent = mainPanel
     
     local scrollLayout = Instance.new("UIListLayout")
     scrollLayout.Padding = UDim.new(0, 6)
     scrollLayout.Parent = scrollFrame
     
+    -- Input oluşturma fonksiyonu
     local function createInput(name, placeholder, callback)
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, -10, 0, 40)
@@ -467,6 +505,7 @@ local function createBuilderTool()
         return input
     end
     
+    -- Button oluşturma fonksiyonu
     local function createButton(name, color, callback)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -10, 0, 35)
@@ -485,41 +524,104 @@ local function createBuilderTool()
         return btn
     end
     
-    createInput("📐 Boyut X,Y,Z", "4,4,4", function(text)
+    -- Section oluşturma
+    local function createSection(name)
+        local sec = Instance.new("TextLabel")
+        sec.Size = UDim2.new(1, -10, 0, 25)
+        sec.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        sec.TextColor3 = Color3.fromRGB(255, 200, 0)
+        sec.Font = Enum.Font.GothamBold
+        sec.TextSize = 11
+        sec.Text = "  " .. name
+        sec.TextXAlignment = Enum.TextXAlignment.Left
+        sec.Parent = scrollFrame
+        
+        local sCorner = Instance.new("UICorner")
+        sCorner.CornerRadius = UDim.new(0, 4)
+        sCorner.Parent = sec
+    end
+    
+    -- Transform Section
+    createSection("📐 Transform (Dönüşüm)")
+    
+    createInput("📏 Boyut X", "4", function(t)
         if selectedObject and selectedObject:IsA("BasePart") then
-            local parts = text:split(",")
-            if #parts == 3 then
-                local x, y, z = tonumber(parts[1]), tonumber(parts[2]), tonumber(parts[3])
-                if x and y and z then selectedObject.Size = Vector3.new(x, y, z) end
+            local num = tonumber(t)
+            if num then selectedObject.Size = Vector3.new(num, selectedObject.Size.Y, selectedObject.Size.Z) end
+        end
+    end)
+    
+    createInput("📏 Boyut Y", "4", function(t)
+        if selectedObject and selectedObject:IsA("BasePart") then
+            local num = tonumber(t)
+            if num then selectedObject.Size = Vector3.new(selectedObject.Size.X, num, selectedObject.Size.Z) end
+        end
+    end)
+    
+    createInput("📏 Boyut Z", "4", function(t)
+        if selectedObject and selectedObject:IsA("BasePart") then
+            local num = tonumber(t)
+            if num then selectedObject.Size = Vector3.new(selectedObject.Size.X, selectedObject.Size.Y, num) end
+        end
+    end)
+    
+    createInput("📍 Pozisyon X", "0", function(t)
+        if selectedObject and selectedObject:IsA("BasePart") then
+            local num = tonumber(t)
+            if num then selectedObject.Position = Vector3.new(num, selectedObject.Position.Y, selectedObject.Position.Z) end
+        end
+    end)
+    
+    createInput("📍 Pozisyon Y", "10", function(t)
+        if selectedObject and selectedObject:IsA("BasePart") then
+            local num = tonumber(t)
+            if num then selectedObject.Position = Vector3.new(selectedObject.Position.X, num, selectedObject.Position.Z) end
+        end
+    end)
+    
+    createInput("📍 Pozisyon Z", "0", function(t)
+        if selectedObject and selectedObject:IsA("BasePart") then
+            local num = tonumber(t)
+            if num then selectedObject.Position = Vector3.new(selectedObject.Position.X, selectedObject.Position.Y, num) end
+        end
+    end)
+    
+    createInput("🔄 Rotasyon X", "0", function(t)
+        if selectedObject and selectedObject:IsA("BasePart") then
+            local num = tonumber(t)
+            if num then
+                local _, ry, rz = selectedObject.CFrame:ToEulerAnglesYXZ()
+                selectedObject.CFrame = CFrame.new(selectedObject.Position) * CFrame.Angles(math.rad(num), ry, rz)
             end
         end
     end)
     
-    createInput("📍 Pozisyon X,Y,Z", "0,10,0", function(text)
+    createInput("🔄 Rotasyon Y", "0", function(t)
         if selectedObject and selectedObject:IsA("BasePart") then
-            local parts = text:split(",")
-            if #parts == 3 then
-                local x, y, z = tonumber(parts[1]), tonumber(parts[2]), tonumber(parts[3])
-                if x and y and z then selectedObject.Position = Vector3.new(x, y, z) end
+            local num = tonumber(t)
+            if num then
+                local rx, _, rz = selectedObject.CFrame:ToEulerAnglesYXZ()
+                selectedObject.CFrame = CFrame.new(selectedObject.Position) * CFrame.Angles(rx, math.rad(num), rz)
             end
         end
     end)
     
-    createInput("🔄 Rotasyon X,Y,Z", "0,45,0", function(text)
+    createInput("🔄 Rotasyon Z", "0", function(t)
         if selectedObject and selectedObject:IsA("BasePart") then
-            local parts = text:split(",")
-            if #parts == 3 then
-                local x, y, z = tonumber(parts[1]), tonumber(parts[2]), tonumber(parts[3])
-                if x and y and z then
-                    selectedObject.CFrame = CFrame.new(selectedObject.Position) * CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
-                end
+            local num = tonumber(t)
+            if num then
+                local rx, ry, _ = selectedObject.CFrame:ToEulerAnglesYXZ()
+                selectedObject.CFrame = CFrame.new(selectedObject.Position) * CFrame.Angles(rx, ry, math.rad(num))
             end
         end
     end)
     
-    createInput("🎨 Renk R,G,B", "255,0,0", function(text)
+    -- Appearance Section
+    createSection("🎨 Görünüm")
+    
+    createInput("🎨 Renk R,G,B", "255,0,0", function(t)
         if selectedObject and selectedObject:IsA("BasePart") then
-            local parts = text:split(",")
+            local parts = t:split(",")
             if #parts == 3 then
                 local r, g, b = tonumber(parts[1]), tonumber(parts[2]), tonumber(parts[3])
                 if r and g and b then selectedObject.Color = Color3.fromRGB(r, g, b) end
@@ -527,25 +629,28 @@ local function createBuilderTool()
         end
     end)
     
-    createInput("🔍 Transparency", "0 - 1", function(text)
+    createInput("🔍 Transparency", "0", function(t)
         if selectedObject and selectedObject:IsA("BasePart") then
-            local num = tonumber(text)
+            local num = tonumber(t)
             if num then selectedObject.Transparency = math.clamp(num, 0, 1) end
         end
     end)
     
-    createInput("💎 Material", "Neon, Metal...", function(text)
+    createInput("💎 Material", "Neon", function(t)
         if selectedObject and selectedObject:IsA("BasePart") then
-            pcall(function() selectedObject.Material = Enum.Material[text] end)
+            pcall(function() selectedObject.Material = Enum.Material[t] end)
         end
     end)
     
-    createInput("✨ Reflectance", "0 - 1", function(text)
+    createInput("✨ Reflectance", "0", function(t)
         if selectedObject and selectedObject:IsA("BasePart") then
-            local num = tonumber(text)
+            local num = tonumber(t)
             if num then selectedObject.Reflectance = math.clamp(num, 0, 1) end
         end
     end)
+    
+    -- Physics Section
+    createSection("⚡ Fizik")
     
     createButton("🔒 Anchored Aç/Kapa", Color3.fromRGB(100, 100, 0), function()
         if selectedObject and selectedObject:IsA("BasePart") then
@@ -558,6 +663,15 @@ local function createBuilderTool()
             selectedObject.CanCollide = not selectedObject.CanCollide
         end
     end)
+    
+    createButton("🌀 Massless Aç/Kapa", Color3.fromRGB(0, 100, 100), function()
+        if selectedObject and selectedObject:IsA("BasePart") then
+            selectedObject.Massless = not selectedObject.Massless
+        end
+    end)
+    
+    -- Actions Section
+    createSection("🛠️ Eylemler")
     
     createButton("🎲 Rastgele Renk", Color3.fromRGB(150, 50, 150), function()
         if selectedObject and selectedObject:IsA("BasePart") then
@@ -572,6 +686,7 @@ local function createBuilderTool()
             clone.CFrame = selectedObject.CFrame * CFrame.new(5, 0, 0)
             selectedObject = clone
             selectedLabel.Text = "📦 Seçili: " .. clone.Name
+            createStudioHandles(clone)
         end
     end)
     
@@ -583,7 +698,10 @@ local function createBuilderTool()
         end
     end)
     
-    createButton("➕ Yeni Part Oluştur", Color3.fromRGB(0, 100, 200), function()
+    -- Create Section
+    createSection("➕ Yeni Oluştur")
+    
+    createButton("➕ Yeni Part", Color3.fromRGB(0, 100, 200), function()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local newPart = Instance.new("Part")
@@ -594,10 +712,11 @@ local function createBuilderTool()
             newPart.Parent = workspace
             selectedObject = newPart
             selectedLabel.Text = "📦 Seçili: " .. newPart.Name
+            createStudioHandles(newPart)
         end
     end)
     
-    createButton("🔵 Yeni Sphere Oluştur", Color3.fromRGB(0, 80, 180), function()
+    createButton("🔵 Yeni Sphere", Color3.fromRGB(0, 80, 180), function()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local newPart = Instance.new("Part")
@@ -609,10 +728,11 @@ local function createBuilderTool()
             newPart.Parent = workspace
             selectedObject = newPart
             selectedLabel.Text = "📦 Seçili: " .. newPart.Name
+            createStudioHandles(newPart)
         end
     end)
     
-    createButton("🔷 Yeni Wedge Oluştur", Color3.fromRGB(0, 60, 160), function()
+    createButton("🔷 Yeni Wedge", Color3.fromRGB(0, 60, 160), function()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local newPart = Instance.new("WedgePart")
@@ -623,8 +743,28 @@ local function createBuilderTool()
             newPart.Parent = workspace
             selectedObject = newPart
             selectedLabel.Text = "📦 Seçili: " .. newPart.Name
+            createStudioHandles(newPart)
         end
     end)
+    
+    createButton("🔶 Yeni Cylinder", Color3.fromRGB(200, 100, 0), function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local newPart = Instance.new("Part")
+            newPart.Shape = Enum.PartType.Cylinder
+            newPart.Size = Vector3.new(4, 4, 4)
+            newPart.Position = char.HumanoidRootPart.Position + Vector3.new(0, 5, 10)
+            newPart.Anchored = true
+            newPart.BrickColor = BrickColor.Random()
+            newPart.Parent = workspace
+            selectedObject = newPart
+            selectedLabel.Text = "📦 Seçili: " .. newPart.Name
+            createStudioHandles(newPart)
+        end
+    end)
+    
+    -- Effects Section
+    createSection("✨ Efektler Ekle")
     
     createButton("💡 PointLight Ekle", Color3.fromRGB(200, 200, 0), function()
         if selectedObject and selectedObject:IsA("BasePart") then
@@ -656,6 +796,27 @@ local function createBuilderTool()
         end
     end)
     
+    createButton("🌟 ParticleEmitter Ekle", Color3.fromRGB(200, 100, 200), function()
+        if selectedObject and selectedObject:IsA("BasePart") then
+            local particle = Instance.new("ParticleEmitter")
+            particle.Rate = 20
+            particle.Lifetime = NumberRange.new(1, 2)
+            particle.Speed = NumberRange.new(5, 10)
+            particle.Parent = selectedObject
+        end
+    end)
+    
+    createButton("🧹 Tüm Efektleri Sil", Color3.fromRGB(150, 0, 0), function()
+        if selectedObject then
+            for _, child in pairs(selectedObject:GetChildren()) do
+                if child:IsA("PointLight") or child:IsA("SpotLight") or child:IsA("Fire") or child:IsA("Smoke") or child:IsA("Sparkles") or child:IsA("ParticleEmitter") then
+                    child:Destroy()
+                end
+            end
+        end
+    end)
+    
+    -- Tool Events
     builderTool.Equipped:Connect(function()
         builderGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
         mainPanel.Visible = true
@@ -663,7 +824,18 @@ local function createBuilderTool()
     
     builderTool.Unequipped:Connect(function()
         mainPanel.Visible = false
+        -- Handles'ları temizle
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name:find("StudioHandle") or obj.Name == "BuilderSelection" then
+                obj:Destroy()
+            end
+        end
     end)
+    
+    -- Drag sistemi
+    local dragging = false
+    local dragPart = nil
+    local dragOffset = nil
     
     builderTool.Activated:Connect(function()
         local target = Mouse.Target
@@ -679,18 +851,13 @@ local function createBuilderTool()
             if not isPlayerPart then
                 if currentBuilderMode == "Select" then
                     selectedObject = target
-                    selectedLabel.Text = "📦 Seçili: " .. target.Name
+                    selectedLabel.Text = "📦 Seçili: " .. target.Name .. " [" .. target.ClassName .. "]"
+                    createStudioHandles(target)
                     
-                    for _, h in pairs(workspace:GetDescendants()) do
-                        if h:IsA("SelectionBox") and h.Name == "BuilderSelection" then h:Destroy() end
-                    end
-                    
-                    local selection = Instance.new("SelectionBox")
-                    selection.Name = "BuilderSelection"
-                    selection.Adornee = target
-                    selection.Color3 = Color3.fromRGB(0, 170, 255)
-                    selection.LineThickness = 0.05
-                    selection.Parent = target
+                elseif currentBuilderMode == "Move" then
+                    dragging = true
+                    dragPart = target
+                    dragOffset = target.Position - Mouse.Hit.p
                     
                 elseif currentBuilderMode == "Delete" then
                     target:Destroy()
@@ -701,16 +868,42 @@ local function createBuilderTool()
                     clone.CFrame = target.CFrame * CFrame.new(5, 0, 0)
                     selectedObject = clone
                     selectedLabel.Text = "📦 Seçili: " .. clone.Name
+                    createStudioHandles(clone)
+                    
+                elseif currentBuilderMode == "Scale" then
+                    selectedObject = target
+                    selectedLabel.Text = "📦 Seçili: " .. target.Name .. " (Boyutlandırma)"
+                    createStudioHandles(target)
+                    
+                elseif currentBuilderMode == "Rotate" then
+                    if target then
+                        target.CFrame = target.CFrame * CFrame.Angles(0, math.rad(45), 0)
+                    end
                 end
             end
         end
     end)
     
+    -- Mouse move for dragging
+    addConnection(Mouse.Move:Connect(function()
+        if dragging and dragPart and currentBuilderMode == "Move" then
+            dragPart.Position = Mouse.Hit.p + dragOffset
+        end
+    end))
+    
+    -- Mouse up to stop dragging
+    addConnection(UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+            dragPart = nil
+        end
+    end))
+    
     builderTool.Parent = LocalPlayer.Backpack
     return builderTool
 end
 
--- ==================== KILIÇ SİSTEMİ ====================
+-- ==================== DÜZELTİLMİŞ KILIÇ SİSTEMİ ====================
 local function createSword()
     local sword = Instance.new("Tool")
     sword.Name = "⚔️ Güçlü Kılıç"
@@ -731,7 +924,8 @@ local function createSword()
     mesh.Scale = Vector3.new(1, 1, 1)
     mesh.Parent = handle
     
-    sword.Grip = CFrame.new(0, 0, 1.5) * CFrame.Angles(math.rad(-90), 0, 0)
+    -- ✅ DÜZELTİLDİ: Kılıç artık doğru tutuluyor
+    sword.Grip = CFrame.new(0, 0, -1.5) * CFrame.Angles(0, 0, math.rad(180))
     
     local debounce = false
     local damageDebounce = {}
@@ -771,7 +965,7 @@ local function createSword()
         if targetHumanoid and targetHumanoid ~= LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
             if not damageDebounce[targetHumanoid] then
                 damageDebounce[targetHumanoid] = true
-                targetHumanoid:TakeDamage(100)
+                targetHumanoid:TakeDamage(swordDamage)
                 
                 local hitSound = Instance.new("Sound")
                 hitSound.SoundId = "rbxassetid://220833976"
@@ -787,35 +981,22 @@ local function createSword()
     return sword
 end
 
--- ==================== SİLAH SİSTEMİ ====================
+-- ==================== GÖRÜNMEZİ ELLİ SİLAH SİSTEMİ ====================
 local function createGun()
     local gun = Instance.new("Tool")
     gun.Name = "🔫 Güçlü Silah"
     gun.RequiresHandle = true
     gun.CanBeDropped = true
     
+    -- ✅ GÖRÜNMEZ HANDLE - El boş görünecek
     local handle = Instance.new("Part")
     handle.Name = "Handle"
-    handle.Size = Vector3.new(0.5, 1.5, 2.5)
-    handle.BrickColor = BrickColor.new("Black")
-    handle.Material = Enum.Material.Metal
+    handle.Size = Vector3.new(0.1, 0.1, 0.1)
+    handle.Transparency = 1  -- Görünmez
+    handle.CanCollide = false
     handle.Parent = gun
     
-    local barrel = Instance.new("Part")
-    barrel.Name = "Barrel"
-    barrel.Size = Vector3.new(0.3, 0.3, 2)
-    barrel.BrickColor = BrickColor.new("Dark stone grey")
-    barrel.Material = Enum.Material.Metal
-    barrel.CanCollide = false
-    barrel.Parent = handle
-    
-    local weld = Instance.new("Weld")
-    weld.Part0 = handle
-    weld.Part1 = barrel
-    weld.C0 = CFrame.new(0, 0.4, -2)
-    weld.Parent = barrel
-    
-    gun.Grip = CFrame.new(0, -0.3, 0.5) * CFrame.Angles(math.rad(-90), 0, 0)
+    gun.Grip = CFrame.new(0, 0, 0)
     
     local debounce = false
     
@@ -825,14 +1006,17 @@ local function createGun()
         
         local character = LocalPlayer.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
+            -- Ateş sesi
             local sound = Instance.new("Sound")
             sound.SoundId = "rbxassetid://131072992"
             sound.Volume = 0.6
-            sound.Parent = handle
+            sound.Parent = character.HumanoidRootPart
             sound:Play()
             Debris:AddItem(sound, 1)
             
-            local origin = barrel.Position
+            -- Silah ışığı efekti (elden çıkar)
+            local rightHand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+            local origin = rightHand and rightHand.Position or character.HumanoidRootPart.Position
             local direction = (Mouse.Hit.p - origin).Unit * 1000
             
             local rayParams = RaycastParams.new()
@@ -841,6 +1025,7 @@ local function createGun()
             
             local result = workspace:Raycast(origin, direction, rayParams)
             
+            -- Mermi izi
             local bullet = Instance.new("Part")
             bullet.Size = Vector3.new(0.15, 0.15, 4)
             bullet.BrickColor = BrickColor.new("Bright yellow")
@@ -861,9 +1046,10 @@ local function createGun()
                 local hit = result.Instance
                 local targetHumanoid = hit.Parent:FindFirstChildOfClass("Humanoid") or hit.Parent.Parent:FindFirstChildOfClass("Humanoid")
                 if targetHumanoid then
-                    targetHumanoid:TakeDamage(100)
+                    targetHumanoid:TakeDamage(gunDamage)
                 end
                 
+                -- Vuruş efekti
                 local hitEffect = Instance.new("Part")
                 hitEffect.Size = Vector3.new(0.8, 0.8, 0.8)
                 hitEffect.Shape = Enum.PartType.Ball
@@ -883,12 +1069,280 @@ local function createGun()
             end
         end
         
-        wait(0.15)
+        wait(gunFireRate)
         debounce = false
     end)
     
     gun.Parent = LocalPlayer.Backpack
     return gun
+end
+
+-- ==================== BÜYÜ SİSTEMİ ====================
+local function createMagicWand()
+    local wand = Instance.new("Tool")
+    wand.Name = "🔮 Büyü Asası"
+    wand.RequiresHandle = true
+    wand.CanBeDropped = true
+    
+    -- Görünmez handle - el boş
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(0.1, 0.1, 0.1)
+    handle.Transparency = 1
+    handle.CanCollide = false
+    handle.Parent = wand
+    
+    local currentMagic = "Fireball"
+    local magicTypes = {"Fireball", "Ice", "Lightning", "Heal", "Shield"}
+    local magicIndex = 1
+    
+    local debounce = false
+    
+    -- Büyü değiştirme (Q tuşu)
+    addConnection(UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.Q then
+            if wand.Parent == LocalPlayer.Character then
+                magicIndex = magicIndex + 1
+                if magicIndex > #magicTypes then magicIndex = 1 end
+                currentMagic = magicTypes[magicIndex]
+                Rayfield:Notify({Title = "Büyü", Content = "Seçili: " .. currentMagic, Duration = 1})
+            end
+        end
+    end))
+    
+    local function castFireball()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local origin = character.HumanoidRootPart.Position + Vector3.new(0, 2, 0)
+        local direction = (Mouse.Hit.p - origin).Unit
+        
+        local fireball = Instance.new("Part")
+        fireball.Size = Vector3.new(2, 2, 2)
+        fireball.Shape = Enum.PartType.Ball
+        fireball.BrickColor = BrickColor.new("Bright orange")
+        fireball.Material = Enum.Material.Neon
+        fireball.Anchored = false
+        fireball.CanCollide = false
+        fireball.Position = origin
+        fireball.Parent = workspace
+        
+        local fire = Instance.new("Fire")
+        fire.Size = 5
+        fire.Heat = 10
+        fire.Parent = fireball
+        
+        local light = Instance.new("PointLight")
+        light.Brightness = 2
+        light.Range = 15
+        light.Color = Color3.fromRGB(255, 150, 0)
+        light.Parent = fireball
+        
+        local bv = Instance.new("BodyVelocity")
+        bv.Velocity = direction * 100
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Parent = fireball
+        
+        -- Ses
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://180204650"
+        sound.Volume = 0.5
+        sound.Parent = fireball
+        sound:Play()
+        
+        fireball.Touched:Connect(function(hit)
+            if hit:IsDescendantOf(character) then return end
+            
+            local hum = hit.Parent:FindFirstChildOfClass("Humanoid") or hit.Parent.Parent:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum:TakeDamage(magicDamage)
+            end
+            
+            -- Patlama efekti
+            local explosion = Instance.new("Part")
+            explosion.Size = Vector3.new(1, 1, 1)
+            explosion.Shape = Enum.PartType.Ball
+            explosion.BrickColor = BrickColor.new("Bright orange")
+            explosion.Material = Enum.Material.Neon
+            explosion.Anchored = true
+            explosion.CanCollide = false
+            explosion.Position = fireball.Position
+            explosion.Parent = workspace
+            
+            TweenService:Create(explosion, TweenInfo.new(0.3), {
+                Size = Vector3.new(10, 10, 10),
+                Transparency = 1
+            }):Play()
+            
+            Debris:AddItem(explosion, 0.4)
+            fireball:Destroy()
+        end)
+        
+        Debris:AddItem(fireball, 5)
+    end
+    
+    local function castIce()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local origin = character.HumanoidRootPart.Position + Vector3.new(0, 2, 0)
+        local direction = (Mouse.Hit.p - origin).Unit
+        
+        for i = 1, 5 do
+            spawn(function()
+                wait(i * 0.1)
+                local ice = Instance.new("Part")
+                ice.Size = Vector3.new(1, 1, 3)
+                ice.BrickColor = BrickColor.new("Pastel light blue")
+                ice.Material = Enum.Material.Ice
+                ice.Transparency = 0.3
+                ice.Anchored = false
+                ice.CanCollide = false
+                ice.Position = origin + Vector3.new(math.random(-2, 2), math.random(-1, 1), 0)
+                ice.Parent = workspace
+                
+                local bv = Instance.new("BodyVelocity")
+                bv.Velocity = direction * 80
+                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                bv.Parent = ice
+                
+                ice.Touched:Connect(function(hit)
+                    if hit:IsDescendantOf(character) then return end
+                    local hum = hit.Parent:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        hum:TakeDamage(magicDamage / 2)
+                        hum.WalkSpeed = hum.WalkSpeed * 0.5
+                        wait(2)
+                        hum.WalkSpeed = 16
+                    end
+                    ice:Destroy()
+                end)
+                
+                Debris:AddItem(ice, 3)
+            end)
+        end
+    end
+    
+    local function castLightning()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local targetPos = Mouse.Hit.p
+        
+        -- Şimşek çizgisi
+        local lightning = Instance.new("Part")
+        lightning.Size = Vector3.new(1, 200, 1)
+        lightning.BrickColor = BrickColor.new("Bright yellow")
+        lightning.Material = Enum.Material.Neon
+        lightning.Anchored = true
+        lightning.CanCollide = false
+        lightning.Position = targetPos + Vector3.new(0, 100, 0)
+        lightning.Parent = workspace
+        
+        -- Ses
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://130783738"
+        sound.Volume = 1
+        sound.Parent = lightning
+        sound:Play()
+        
+        -- Alan hasarı
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local root = player.Character:FindFirstChild("HumanoidRootPart")
+                local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                if root and hum then
+                    local distance = (root.Position - targetPos).Magnitude
+                    if distance < 15 then
+                        hum:TakeDamage(magicDamage * 1.5)
+                    end
+                end
+            end
+        end
+        
+        TweenService:Create(lightning, TweenInfo.new(0.3), {
+            Transparency = 1,
+            Size = Vector3.new(5, 200, 5)
+        }):Play()
+        
+        Debris:AddItem(lightning, 0.4)
+    end
+    
+    local function castHeal()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Health = math.min(humanoid.Health + 30, humanoid.MaxHealth)
+            
+            -- İyileştirme efekti
+            local heal = Instance.new("Part")
+            heal.Size = Vector3.new(5, 5, 5)
+            heal.Shape = Enum.PartType.Ball
+            heal.BrickColor = BrickColor.new("Lime green")
+            heal.Material = Enum.Material.Neon
+            heal.Transparency = 0.5
+            heal.Anchored = true
+            heal.CanCollide = false
+            heal.Position = character.HumanoidRootPart.Position
+            heal.Parent = workspace
+            
+            TweenService:Create(heal, TweenInfo.new(0.5), {
+                Size = Vector3.new(15, 15, 15),
+                Transparency = 1
+            }):Play()
+            
+            Debris:AddItem(heal, 0.6)
+        end
+    end
+    
+    local function castShield()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local shield = Instance.new("Part")
+        shield.Size = Vector3.new(8, 8, 1)
+        shield.Shape = Enum.PartType.Cylinder
+        shield.BrickColor = BrickColor.new("Cyan")
+        shield.Material = Enum.Material.ForceField
+        shield.Transparency = 0.5
+        shield.Anchored = false
+        shield.CanCollide = true
+        shield.Parent = character
+        
+        local weld = Instance.new("Weld")
+        weld.Part0 = character.HumanoidRootPart
+        weld.Part1 = shield
+        weld.C0 = CFrame.new(0, 0, 3) * CFrame.Angles(0, 0, math.rad(90))
+        weld.Parent = shield
+        
+        Debris:AddItem(shield, 5)
+    end
+    
+    wand.Activated:Connect(function()
+        if debounce then return end
+        debounce = true
+        
+        if currentMagic == "Fireball" then
+            castFireball()
+        elseif currentMagic == "Ice" then
+            castIce()
+        elseif currentMagic == "Lightning" then
+            castLightning()
+        elseif currentMagic == "Heal" then
+            castHeal()
+        elseif currentMagic == "Shield" then
+            castShield()
+        end
+        
+        wait(magicCooldown)
+        debounce = false
+    end)
+    
+    wand.Parent = LocalPlayer.Backpack
+    return wand
 end
 
 -- ==================== KILLER SİSTEMİ ====================
@@ -934,6 +1388,13 @@ local function KillScript()
     if compassGui then compassGui:Destroy() compassGui = nil end
     if builderTool then builderTool:Destroy() builderTool = nil end
     
+    -- Handles temizle
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj.Name:find("StudioHandle") or obj.Name == "BuilderSelection" then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+    
     Lighting.Brightness = OriginalSettings.Brightness
     Lighting.ClockTime = OriginalSettings.ClockTime
     Lighting.FogEnd = OriginalSettings.FogEnd
@@ -970,7 +1431,6 @@ local function KillScript()
     
     print("TarnakLua-Roblox V3 kapatıldı!")
 end
-
 -- ==================== ANA PENCERE ====================
 local Window = Rayfield:CreateWindow({
     Name = "TarnakLua-Roblox V3",
@@ -992,6 +1452,7 @@ addConnection(UserInputService.InputBegan:Connect(function(input, gp)
         Rayfield:Toggle()
     end
 end))
+
 -- ==================== UÇUŞ TAB ====================
 local FlyTab = Window:CreateTab("✈️ Uçuş", nil)
 
@@ -1456,7 +1917,6 @@ MovementTab:CreateInput({
     end,
 })
 
-local dashEnabled = false
 MovementTab:CreateToggle({
     Name = "💨 Dash Aktif (Animasyonlu Q)",
     CurrentValue = false,
@@ -1549,35 +2009,130 @@ local ToolsTab = Window:CreateTab("🔧 Araçlar", nil)
 
 local WeaponSection = ToolsTab:CreateSection("⚔️ Silahlar")
 
+-- Kılıç Ayarları
+local SwordDamageLabel = ToolsTab:CreateLabel("⚔️ Kılıç Hasarı: " .. swordDamage)
+
+ToolsTab:CreateInput({
+    Name = "⚔️ Kılıç Hasarı Ayarla",
+    PlaceholderText = "35",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num and num >= 1 then
+            swordDamage = num
+            SwordDamageLabel:Set("⚔️ Kılıç Hasarı: " .. swordDamage)
+            Rayfield:Notify({Title = "Kılıç", Content = "Hasar: " .. num, Duration = 1})
+        end
+    end,
+})
+
 ToolsTab:CreateButton({
-    Name = "🗡️ Kılıç Ver (Tek Atar)",
+    Name = "🗡️ Kılıç Ver",
     Callback = function()
         createSword()
         Rayfield:Notify({Title = "Kılıç", Content = "Envantere eklendi!", Duration = 2})
     end,
 })
 
-ToolsTab:CreateButton({
-    Name = "🔫 Silah Ver (Tek Atar)",
-    Callback = function()
-        createGun()
-        Rayfield:Notify({Title = "Silah", Content = "Envantere eklendi!", Duration = 2})
+-- Silah Ayarları
+local GunSection = ToolsTab:CreateSection("🔫 Silah Ayarları")
+
+local GunDamageLabel = ToolsTab:CreateLabel("🔫 Silah Hasarı: " .. gunDamage)
+
+ToolsTab:CreateInput({
+    Name = "🔫 Silah Hasarı Ayarla",
+    PlaceholderText = "25",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num and num >= 1 then
+            gunDamage = num
+            GunDamageLabel:Set("🔫 Silah Hasarı: " .. gunDamage)
+            Rayfield:Notify({Title = "Silah", Content = "Hasar: " .. num, Duration = 1})
+        end
     end,
 })
 
-local BuilderSection = ToolsTab:CreateSection("🔨 Builder Tool")
+ToolsTab:CreateInput({
+    Name = "⏱️ Ateş Hızı (saniye)",
+    PlaceholderText = "0.15",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num and num >= 0.01 then
+            gunFireRate = num
+            Rayfield:Notify({Title = "Silah", Content = "Ateş Hızı: " .. num .. "s", Duration = 1})
+        end
+    end,
+})
 
 ToolsTab:CreateButton({
-    Name = "🔧 Builder Tool Ver (Roblox Studio)",
+    Name = "🔫 Silah Ver (Görünmez El)",
     Callback = function()
-        createBuilderTool()
-        Rayfield:Notify({Title = "Builder Tool", Content = "Envantere eklendi! Equip et ve objelere tıkla.", Duration = 3})
+        createGun()
+        Rayfield:Notify({Title = "Silah", Content = "Envantere eklendi! El boş görünür.", Duration = 2})
+    end,
+})
+
+-- Büyü Ayarları
+local MagicSection = ToolsTab:CreateSection("🔮 Büyü Sistemi")
+
+local MagicDamageLabel = ToolsTab:CreateLabel("🔮 Büyü Hasarı: " .. magicDamage)
+
+ToolsTab:CreateInput({
+    Name = "🔮 Büyü Hasarı Ayarla",
+    PlaceholderText = "40",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num and num >= 1 then
+            magicDamage = num
+            MagicDamageLabel:Set("🔮 Büyü Hasarı: " .. magicDamage)
+            Rayfield:Notify({Title = "Büyü", Content = "Hasar: " .. num, Duration = 1})
+        end
+    end,
+})
+
+ToolsTab:CreateInput({
+    Name = "⏱️ Büyü Bekleme Süresi",
+    PlaceholderText = "1",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num and num >= 0.1 then
+            magicCooldown = num
+            Rayfield:Notify({Title = "Büyü", Content = "Bekleme: " .. num .. "s", Duration = 1})
+        end
+    end,
+})
+
+ToolsTab:CreateButton({
+    Name = "🔮 Büyü Asası Ver",
+    Callback = function()
+        createMagicWand()
+        Rayfield:Notify({Title = "Büyü", Content = "Q ile büyü değiştir! Fireball, Ice, Lightning, Heal, Shield", Duration = 4})
     end,
 })
 
 ToolsTab:CreateParagraph({
-    Title = "📖 Builder Tool Kullanımı",
-    Content = "1. Builder Tool'u envaterden equip et\n2. Objelere tıkla seçmek için\n3. Sağdaki panelden düzenle\n4. Modlar: Select/Move/Scale/Rotate/Delete/Clone\n5. Yeni Part, Sphere, Wedge oluşturabilirsin\n6. Işık, ateş, duman ekleyebilirsin"
+    Title = "🔮 Büyü Türleri",
+    Content = "🔥 Fireball - Ateş topu fırlat\n❄️ Ice - Yavaşlatan buz\n⚡ Lightning - Şimşek çaktır\n💚 Heal - Kendini iyileştir\n🛡️ Shield - Kalkan oluştur\n\nQ tuşu ile değiştir!"
+})
+
+-- Builder Tool
+local BuilderSection = ToolsTab:CreateSection("🔨 Studio Builder")
+
+ToolsTab:CreateButton({
+    Name = "🔧 Studio Builder Ver",
+    Callback = function()
+        createBuilderTool()
+        Rayfield:Notify({Title = "Builder Tool", Content = "Roblox Studio tarzı! Mavi kutularla düzenle.", Duration = 3})
+    end,
+})
+
+ToolsTab:CreateParagraph({
+    Title = "📖 Builder Kullanımı",
+    Content = "1. Tool'u equip et\n2. Objelere tıkla (mavi kutu belirir)\n3. Sağdaki panelden düzenle\n4. Sürükle-bırak ile taşı\n5. X,Y,Z ayrı ayrı ayarla\n6. Modlar: Select/Move/Scale/Rotate/Delete/Clone"
 })
 
 -- ==================== OTOMASYON TAB ====================
@@ -1715,11 +2270,6 @@ AutoTab:CreateInput({
             Rayfield:Notify({Title = "Spam Aralığı", Content = num == 0 and "Sürekli" or (num .. " saniye"), Duration = 1})
         end
     end,
-})
-
-AutoTab:CreateParagraph({
-    Title = "📖 Desteklenen Tuşlar",
-    Content = "Harfler: A-Z\nSayılar: 0-9\nFonksiyon: F1-F12\nÖzel: SPACE, ENTER, TAB, SHIFT, CTRL, ALT\nYönler: UP, DOWN, LEFT, RIGHT\nDiğer: BACKSPACE, ESC, HOME, END, PAGEUP, PAGEDOWN, INSERT, DELETE"
 })
 
 -- Anti AFK
@@ -2419,7 +2969,7 @@ VisibilityTab:CreateButton({
 -- ==================== IŞINLANMA TAB ====================
 local TeleportTab = Window:CreateTab("🌀 Işınlanma", nil)
 
--- Konum Bölümü (Pusula ile birleşik)
+-- Konum Bölümü
 local LocationSection = TeleportTab:CreateSection("📍 Konum & Pusula")
 
 local locationLabel = TeleportTab:CreateLabel("📍 Konum yükleniyor...")
@@ -2718,9 +3268,9 @@ ScriptsTab:CreateButton({
     Name = "🎮 Mobile Keyboard",
     Callback = function()
         Rayfield:Notify({Title = "Yükleniyor", Content = "Mobile Keyboard...", Duration = 3})
-        
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/AZYsGithub/chillz-keyboard/main/source"))()
     end,
-})loadstring(game:HttpGet("https://raw.githubusercontent.com/AZYsGithub/chillz-keyboard/main/source"))()
+})
 
 ScriptsTab:CreateButton({
     Name = "🔓 Fe Animations - Animasyonlar",
@@ -2737,80 +3287,27 @@ ScriptsTab:CreateButton({
         loadstring(game:HttpGet("https://raw.githubusercontent.com/cfsmi2/c00lguiv1/refs/heads/main/Main.lua"))()
     end,
 })
+
 -- ==================== AYARLAR TAB ====================
 local SettingsTab = Window:CreateTab("⚙️ Ayarlar", nil)
 
 -- Reload Bölümü
 local ReloadSection = SettingsTab:CreateSection("🔄 Reload Sistemi")
 
--- Toggle referanslarını saklayacak tablo
-local AllToggles = {
-    FlyToggle = nil,
-    NoclipToggle = nil,
-    ESPToggle = nil,
-    InfiniteJumpToggle = nil,
-    ShiftBoostToggle = nil,
-    DashToggle = nil,
-    AutoClickerToggle = nil,
-    SpamAutoToggle = nil,
-    AntiAFKToggle = nil,
-    InvisibleToggle = nil,
-    NoAnimationsToggle = nil,
-    NoParticlesToggle = nil,
-    FullbrightToggle = nil,
-    NightVisionToggle = nil,
-    NoShadowsToggle = nil,
-    NoFogToggle = nil,
-    NoLightsToggle = nil,
-    NoBlurToggle = nil,
-    NoBloomToggle = nil,
-    NoSunRaysToggle = nil,
-    NoDOFToggle = nil,
-    RainbowAmbientToggle = nil,
-}
-
--- Aktif toggle durumlarını kaydet
-local function getActiveToggles()
-    local activeStates = {}
-    activeStates.fly = flyEnabled
-    activeStates.noclip = noclipEnabled
-    activeStates.esp = espEnabled
-    activeStates.infiniteJump = infiniteJumpEnabled
-    activeStates.shiftBoost = shiftBoostEnabled
-    activeStates.dash = dashEnabled
-    activeStates.autoClicker = autoClickerEnabled
-    activeStates.spamAuto = spamAutoEnabled
-    activeStates.antiAfk = antiAfkEnabled
-    activeStates.invisible = invisibleEnabled
-    activeStates.noAnimations = noAnimationsEnabled
-    activeStates.noParticles = noParticlesEnabled
-    activeStates.fullbright = fullbrightEnabled
-    activeStates.nightVision = nightVisionEnabled
-    activeStates.noShadows = noShadowsEnabled
-    activeStates.noFog = noFogEnabled
-    activeStates.noLights = noLightsEnabled
-    activeStates.noBlur = noBlurEnabled
-    activeStates.noBloom = noBloomEnabled
-    activeStates.noSunRays = noSunRaysEnabled
-    activeStates.noDOF = noDOFEnabled
-    activeStates.rainbowAmbient = rainbowAmbientEnabled
-    return activeStates
-end
-
--- Reload fonksiyonu
 local function ReloadAllFeatures()
     Rayfield:Notify({Title = "Reload", Content = "Özellikler yeniden yükleniyor...", Duration = 2})
     
     -- Mevcut durumları kaydet
-    local savedStates = getActiveToggles()
+    local savedFly = flyEnabled
+    local savedEsp = espEnabled
+    local savedNoclip = noclipEnabled
     
-    -- Önce hepsini kapat
+    -- Hepsini kapat
     flyEnabled = false
     noclipEnabled = false
     espEnabled = false
     infiniteJumpEnabled = false
     shiftBoostEnabled = false
-    dashEnabled = false
     autoClickerEnabled = false
     spamAutoEnabled = false
     antiAfkEnabled = false
@@ -2822,10 +3319,6 @@ local function ReloadAllFeatures()
     noShadowsEnabled = false
     noFogEnabled = false
     noLightsEnabled = false
-    noBlurEnabled = false
-    noBloomEnabled = false
-    noSunRaysEnabled = false
-    noDOFEnabled = false
     rainbowAmbientEnabled = false
     nowe = false
     tpwalking = false
@@ -2878,35 +3371,16 @@ local function ReloadAllFeatures()
         end
     end
     
+    -- Handles temizle
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj.Name:find("StudioHandle") or obj.Name == "BuilderSelection" then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+    
     wait(0.5)
     
-    -- Kayıtlı durumları geri yükle
-    if savedStates.fly and AllToggles.FlyToggle then
-        AllToggles.FlyToggle:Set(true)
-    end
-    if savedStates.noclip and AllToggles.NoclipToggle then
-        AllToggles.NoclipToggle:Set(true)
-    end
-    if savedStates.esp and AllToggles.ESPToggle then
-        AllToggles.ESPToggle:Set(true)
-    end
-    if savedStates.infiniteJump and AllToggles.InfiniteJumpToggle then
-        AllToggles.InfiniteJumpToggle:Set(true)
-    end
-    if savedStates.shiftBoost and AllToggles.ShiftBoostToggle then
-        AllToggles.ShiftBoostToggle:Set(true)
-    end
-    if savedStates.autoClicker and AllToggles.AutoClickerToggle then
-        AllToggles.AutoClickerToggle:Set(true)
-    end
-    if savedStates.antiAfk and AllToggles.AntiAFKToggle then
-        AllToggles.AntiAFKToggle:Set(true)
-    end
-    if savedStates.fullbright and AllToggles.FullbrightToggle then
-        AllToggles.FullbrightToggle:Set(true)
-    end
-    
-    Rayfield:Notify({Title = "Reload", Content = "Tüm özellikler yeniden yüklendi!", Duration = 2})
+    Rayfield:Notify({Title = "Reload", Content = "Tüm özellikler sıfırlandı!", Duration = 2})
 end
 
 SettingsTab:CreateButton({
@@ -2920,16 +3394,11 @@ SettingsTab:CreateButton({
     Name = "🔄 Sadece Uçuşu Reload Et",
     Callback = function()
         if flyEnabled then
-            local wasEnabled = true
             flyEnabled = false
             nowe = false
             tpwalking = false
             cleanupFly()
-            wait(0.3)
-            if wasEnabled and AllToggles.FlyToggle then
-                AllToggles.FlyToggle:Set(true)
-            end
-            Rayfield:Notify({Title = "Reload", Content = "Uçuş yeniden yüklendi!", Duration = 2})
+            Rayfield:Notify({Title = "Reload", Content = "Uçuş sıfırlandı!", Duration = 2})
         else
             Rayfield:Notify({Title = "Reload", Content = "Uçuş zaten kapalı!", Duration = 2})
         end
@@ -3082,7 +3551,7 @@ local AppSection = SettingsTab:CreateSection("🔧 Uygulama Ayarları")
 
 SettingsTab:CreateParagraph({
     Title = "⌨️ Kısayol Tuşları",
-    Content = "• PageDown / Break: Menüyü Aç/Kapa\n• Auto Clicker tuşu: Ayarlanabilir (varsayılan X)\n• Q: Dash (aktifse)\n• WASD: Uçuş hareketi\n• Shift: Hızlanma (aktifse)"
+    Content = "• PageDown / Break: Menüyü Aç/Kapa\n• Auto Clicker tuşu: Ayarlanabilir (varsayılan X)\n• Q: Dash (aktifse) / Büyü değiştir\n• WASD: Uçuş hareketi\n• Shift: Hızlanma (aktifse)"
 })
 
 SettingsTab:CreateButton({
@@ -3094,6 +3563,7 @@ SettingsTab:CreateButton({
         Rayfield:Destroy()
     end,
 })
+
 -- ==================== KARAKTER YENİDEN OLUŞTURULUNCA ====================
 addConnection(LocalPlayer.CharacterAdded:Connect(function(character)
     wait(0.7)
@@ -3159,16 +3629,24 @@ end))
 
 -- ==================== HOŞGELDIN ====================
 Rayfield:Notify({
-    Title = "TarnakLua-Roblox V3",
+    Title = "TarnakLua-Roblox",
     Content = "Script yüklendi! PageDown/Break ile aç/kapa",
     Duration = 5,
 })
 
 print("=====================================")
-print("   TarnakLua-Roblox V3")
+print("   TarnakLua-Roblox")
 print("   Ultimate Script Hub")
 print("=====================================")
 print("• PageDown / Break: Menü aç/kapa")
 print("• Tüm özellikler menüden erişilebilir")
 print("• KILLER ile güvenli kapatma")
+print("=====================================")
+print("YENİ ÖZELLİKLER:")
+print("• ⚔️ Kılıç düzeltildi (doğru tutuş)")
+print("• 🔫 Silah görünmez el ile")
+print("• 🔮 Büyü sistemi (Q ile değiştir)")
+print("• 🔧 Studio Builder (sürükle-bırak)")
+print("• 📐 Ayrı X,Y,Z ayarları")
+print("• 🎨 Mavi seçim kutuları")
 print("=====================================")
