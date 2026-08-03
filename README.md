@@ -37,4 +37,4 @@ TarnakLua-Roblox/
 └── README.md
 ```
 
-**Yapan:** [Tarık Eler](https://github.com/TARIKTR1099)
+**Yapan:** [Tarık Eler](https://github.com/TARIKELER-TARNAK)
